@@ -1,0 +1,280 @@
+openapi: "3.0.2"
+info:
+  title: SIG Main Node Test API
+  version: "1.0"
+servers:
+  - url: http://{domain}:{port}/test/v1
+    variables:
+      domain:
+        default: localhost
+      port:
+        default: "3030"
+  - url: http://127.0.0.1:3030/test/v1
+
+paths:
+  /device/1/output:
+    post:
+      tags:
+        - "Output"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                outputs:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/output"
+
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "400":
+          description: Something went awry
+
+  /device/1/input/{id}:
+    get:
+      tags:
+        - "Input"
+      description: Gets the current input state
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            enum:
+              [
+                tamper,
+                acfail,
+                batlow,
+                module_det,
+                sam_clk_en,
+                sam_reset,
+                sam_array_reset,
+                sam_array_boot,
+                module_det_a,
+                dipsw1,
+                dipsw2,
+                dipsw3,
+                dipsw4,
+                adc,
+              ]
+          required: true
+          description: The input to check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "500":
+          description: Something went wrong querying the pin
+
+  /device/1/component/rtc:
+    get:
+      tags:
+        - "RTC"
+      description: Fetches the RTC Time (format YYYY-MM-DD HH:MM:SS)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rtc"
+        "500":
+          description: Something went wrong querying the tamper pin
+    put:
+      tags:
+        - "RTC"
+      description: Sets the RTC time
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Rtc"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "500":
+          description: Something went wrong querying the tamper pin
+
+  /device/1/component/emmc:
+    post:
+      tags:
+        - "self test"
+      description: Checks the lifetime of the MMC
+        Will return a fail response if less than 90%
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+
+        "500":
+          description: Something went wrong querying the tamper pin
+
+  /device/1/component/fram:
+    post:
+      tags:
+        - "self test"
+      description: Tests the FRAM
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+
+  /device/1/reset:
+    post:
+      tags:
+        - "TODO"
+      description: Returns the board to a virgin state
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Reset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "500":
+          description: Something went wrong
+
+  /device/1/component/samarray:
+    post:
+      tags:
+        - "self test"
+      description: Checks comms with the SAM array and it's SAMs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+
+        "500":
+          description: Something went wrong querying the tamper pin
+
+  /device/1/component/rs485:
+    post:
+      tags:
+        - "comms"
+      description: Listens for data sent on the given port. Compares what's received and returns the result
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rs485_read"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "500":
+          description: Something went wrong
+    put:
+      tags:
+        - "comms"
+      description: Sends data on the RS485 port
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rs485_send"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResult"
+        "500":
+          description: Something went wrong
+
+components:
+  schemas:
+    TestResult:
+      type: object
+      properties:
+        test:
+          type: string
+        result:
+          type: string
+        code:
+          type: integer
+          format: int32
+        passed:
+          type: boolean
+    Rtc:
+      type: object
+      properties:
+        date:
+          type: string
+          example: "2023-03-20"
+        time:
+          type: string
+          example: "17:55:44"
+    Reset:
+      type: object
+      properties:
+        reboot:
+          type: string
+          example: "false"
+    Duration:
+      type: object
+      properties:
+        seconds:
+          type: string
+          example: "20"
+    output:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [on, off]
+        identifier:
+          type: string
+          enum: [led1, led2, led3, led4, led5, led6]
+    rs485_send:
+      type: object
+      properties:
+        baud:
+          type: integer
+          enum: [9600, 19200, 38400, 57600, 115200]
+        data:
+          type: string
+          description: The data to send (for read, this is ignored)
+        timeout_ms:
+          type: integer
+          example: 5000
+    rs485_read:
+      type: object
+      properties:
+        baud:
+          type: integer
+          enum: [9600, 19200, 38400, 57600, 115200]
+        timeout_ms:
+          type: integer
+          example: 5000
